@@ -1,0 +1,56 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Deploy Ec2 in VPC accessible via TCP 80
+Parameters:
+    VPCParameter:
+        Type: AWS::EC2::VPC::Id
+        Description: VPC used to deploy our resources
+    InstanceTypeParameter:
+        Type: String
+        Default: t3.micro
+        Description: Enter instance type. default t3.micro
+    InstanceSubnetParameter:
+        Type: "AWS::EC2::Subnet::Id"
+        Description: Enter subnet id.
+    KeyPairParameter:
+        Type: "AWS::EC2::KeyPair::KeyName"
+        Description: Amazon EC2 Key Pair.
+    AMIParameter:
+        Type: String
+        Description: AMI to use
+Resources:
+  myWebAccessSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+        GroupDescription: Allow http and unrestricted outbound
+        VpcId: 
+            Ref: VPCParameter
+        SecurityGroupIngress:
+            - IpProtocol: tcp
+              FromPort: 80
+              ToPort: 80
+              CidrIp: 0.0.0.0/0
+        SecurityGroupEgress:
+            - IpProtocol: -1
+              FromPort: -1
+              ToPort: -1
+              CidrIp: 0.0.0.0/0
+  myWebServerInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+        ImageId: !Ref AMIParameter
+        InstanceType: !Ref InstanceTypeParameter
+        KeyName: !Ref KeyPairParameter
+        NetworkInterfaces:
+            - AssociatePublicIpAddress: "true"
+              DeviceIndex: "0"
+              GroupSet: 
+                - Ref: "myWebAccessSecurityGroup"
+              SubnetId: !Ref InstanceSubnetParameter
+
+        UserData:
+            Fn::Base64: !Sub |
+                #!/bin/bash
+                sudo yum update -y
+                sudo yum install -y httpd
+                sudo systemctl start httpd
+                sudo systemctl enable httpd
