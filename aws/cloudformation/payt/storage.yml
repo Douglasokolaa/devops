@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >
-  networking infrastrucure
+  Storage infrastrucure
 
 
 Parameters:
@@ -111,8 +111,8 @@ Resources:
                       Principal: '*'
                       Condition:
                         IpAddress:
-                          - aws:SourceIp
-                            - "197.211.58.12/24"
+                            'aws:SourceIp':
+                                - "197.211.58.12/24"
 
 
 Outputs:
