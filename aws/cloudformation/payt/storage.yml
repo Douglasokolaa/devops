@@ -1,0 +1,140 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  networking infrastrucure
+
+
+Parameters:
+    EnvironmentName:
+        Description: An environment name that will be prefixed to resource names
+        Type: String
+    DBInstanceID:
+        Default: mydbinstance
+        Description: My database instance
+        Type: String
+        MinLength: '1'
+        MaxLength: '63'
+        AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+        ConstraintDescription: >-
+            Must begin with a letter and must not end with a hyphen or contain two
+            consecutive hyphens.
+    DBName:
+        Default: mydb
+        Description: My database
+        Type: String
+        MinLength: '1'
+        MaxLength: '64'
+        AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+        ConstraintDescription: Must begin with a letter and contain only alphanumeric characters.
+    DBInstanceClass:
+        Description: DB instance class
+        Type: String
+        ConstraintDescription: Must select a valid DB instance type.
+    DBAllocatedStorage:
+        Description: The size of the database (GiB)
+        Type: Number
+        MinValue: '5'
+        MaxValue: '65536'
+        ConstraintDescription: must be between 20 and 65536 GiB.
+    DBUsername:
+        NoEcho: 'true'
+        Description: Username for MySQL database access
+        Type: String
+        MinLength: '1'
+        MaxLength: '16'
+        AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+        ConstraintDescription: must begin with a letter and contain only alphanumeric characters.
+    DBPassword:
+        NoEcho: 'true'
+        Description: Password MySQL database access
+        Type: String
+        MinLength: '8'
+        MaxLength: '41'
+        AllowedPattern: '[a-zA-Z0-9]*'
+        ConstraintDescription: must contain only alphanumeric characters.
+    S3BucketName:
+        Description: The buckets unique name
+        Type: String
+   
+Resources:
+    RdsDBSubnetGroup:
+        Type: AWS::RDS::DBSubnetGroup
+        Properties:
+            DBSubnetGroupDescription: "RDS Database Subnet Group"
+            SubnetIds:
+                -   Fn::ImportValue: !Sub "${EnvironmentName}-PRI1-SN"
+                -   Fn::ImportValue: !Sub "${EnvironmentName}-PRI2-SN"
+            Tags:
+                -   Key: Name
+                    Value: !Sub ${EnvironmentName}-rdsDB-subnet
+    RdsDatabase:
+        Type: "AWS::RDS::DBInstance"
+        Properties:
+            DBInstanceIdentifier: !Ref DBInstanceID
+            DBName: !Ref DBName
+            DBInstanceClass: !Ref DBInstanceClass
+            AllocatedStorage: !Ref DBAllocatedStorage
+            Engine: MySQL
+            EngineVersion: "8.0.16"
+            MasterUsername: !Ref DBUsername
+            MasterUserPassword: !Ref DBPassword
+            # MonitoringInterval: '60'
+            # MonitoringRoleArn: 'arn:aws:iam::550946025701:role/rds-monitoring-role'
+    S3Bucket:
+      Type: AWS::S3::Bucket
+      Properties: 
+        AccessControl: PublicRead
+        BucketName: !Ref S3BucketName
+        WebsiteConfiguration: 
+            IndexDocument: index.html
+            ErrorDocument: index.html
+
+        Tags:
+          - Key: key
+            Value: !Sub ${EnvironmentName}-s3Bucket
+
+    S3BucketPolicy:
+        Type: AWS::S3::BucketPolicy
+        Properties:
+            Bucket: !Ref S3Bucket
+            PolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                    - Action:
+                        - 's3:GetObject'
+                      Effect: Allow
+                      Resource: !Join
+                        - ''
+                        - - 'arn:aws:s3:::'
+                          - !Ref S3BucketName
+                          - /*
+                          - ''
+                      Principal: '*'
+                      Condition:
+                        IpAddress:
+                          - aws:SourceIp
+                            - "197.211.58.12/24"
+
+
+Outputs:
+    RdsDatabase:
+        Description: InstanceId of the newly created RDS Instance
+        Value: !Ref S3BucketName
+        Export:
+            Name: !Sub ${EnvironmentName}-RdsDatabase
+    WebsiteURL:
+        Value: !GetAtt
+            - S3Bucket
+            - WebsiteURL
+        Description: URL for website hosted on S3
+        Export:
+            Name: !Sub ${EnvironmentName}-WebsiteURL
+    S3BucketSecureURL:
+        Value: !Join
+            - ''
+            - - 'https://'
+              - !GetAtt
+                - S3Bucket
+                - DomainName
+        Description: Name of S3 bucket to hold website content
+        Export:
+            Name: !Sub ${EnvironmentName}-S3BucketSecureURL
