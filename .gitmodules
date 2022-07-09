@@ -1,0 +1,3 @@
+[submodule "udagram"]
+	path = aws/cloudformation/udagram
+	url = https://github.com/Douglasokolaa/Udagram-infras.git
